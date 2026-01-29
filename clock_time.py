@@ -2,6 +2,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# can change the path name if you want to name it something different
 DATA_FILE = Path("clock_data.txt")
 DATE_FMT = "%m-%d-%Y"
 TIME_FMT = "%H:%M:%S"
@@ -123,17 +124,24 @@ def compute_weekly_hours():
     weekly = {}
 
     i = 0
-    while i < len(entries) - 1:
-        dt_in, status_in = entries[i]
-        dt_out, status_out = entries[i + 1]
+    while i < len(entries):
+        dt, status = entries[i]
+        if status == "in":
+            start = dt
+            # determine if this session was ended
+            if (i + 1) < len(entries) and entries[i + 1][1] == "out":
+                end = entries[i + 1][0]
+                i += 1 # skip entry since there was an out
+            else:
+                # open session
+                end = now()
+            # compute duration in hours
+            duration = (end - start).total_seconds() / 3600
 
-        if status_in == "in" and status_out == "out":
-            duration = (dt_out - dt_in).total_seconds() / 3600
-            wk = week_start(dt_in).date()
-            weekly[wk] = weekly.get(wk, 0.0) + duration
-            i += 2
-        else:
-            i += 1
+            # assign to week (Monday-Sunday)
+            wk_start = week_start(start).date()
+            weekly[wk_start] = weekly.get(wk_start, 0.0) + duration
+        i += 1
 
     return dict(sorted(weekly.items()))
 
