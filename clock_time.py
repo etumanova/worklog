@@ -27,7 +27,7 @@ def read_entries():
     return entries
 
 def write_entry(dt, status):
-    # Ensure file exists before appending
+    # checks if the file exists, otherwise it creates the file
     DATA_FILE.touch(exist_ok=True)
 
     with open(DATA_FILE, "a") as f:
@@ -53,13 +53,40 @@ def clear_n_previous(n: int):
         print("Cleared entire file.")
         return
 
-    # Keep everything except the last n lines
+    # keep everything except the last n lines
     remaining = lines[:-n]
 
     with open(DATA_FILE, "w") as f:
         f.writelines(remaining)
 
     print(f"Cleared last {n} entr{'y' if n == 1 else 'ies'}.")
+
+def status():
+    entries = read_entries()
+    if not entries:
+        print("No entries yet. You have not clocked in or out.")
+        return
+
+    last_dt, last_status = entries[-1]
+
+    if last_status == "in":
+        # we're currently clocked in
+        elapsed = now() - last_dt
+        days, remainder = divmod(elapsed.total_seconds(), 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        print("Status: CLOCKED IN")
+        print(f"Started: {last_dt.strftime(DT_FMT)}")
+
+        elapsed_str = ""
+        if days > 0:
+            elapsed_str += f"{days}d "
+        elapsed_str += f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+        print(f"Elapsed: {elapsed_str}")
+    else:
+        # currently clocked out
+        print("Status: CLOCKED OUT")
+        print(f"Last clock-out: {last_dt.strftime(DT_FMT)}")
 
 # -----------------------------
 #        Clock in / out
@@ -75,10 +102,6 @@ def clock_in():
     print("Clocked in.")
 
 def clock_out():
-    if not DATA_FILE.exists():
-        print("Error: no existing data file.")
-        return
-
     entries = read_entries()
     if last_status(entries) != "in":
         print("Error: cannot clock out unless clocked in.")
@@ -92,7 +115,7 @@ def clock_out():
 # -----------------------------
 
 def week_start(dt):
-    # Monday as start of week
+    # uses Monday as start of week
     return dt - timedelta(days=dt.weekday())
 
 def compute_weekly_hours():
@@ -132,12 +155,15 @@ def print_weekly(limit=None):
 # -----------------------------
 
 def main():
-    if len(sys.argv) != 2 | len(sys.argv) != 3:
-        print("Usage: python3 clock_time.py [in|out|weekly|all|(clear n)]")
+    cmd = sys.argv[1] if len(sys.argv) > 1 else None
+
+    if cmd in {"in", "out", "weekly", "all"} and len(sys.argv) != 2:
+        print("Usage: python3 clock_time.py [in|out|status|weekly|all]")
         return
-
-    cmd = sys.argv[1]
-
+    elif cmd == "clear" and len(sys.argv) != 3:
+        print("Usage: python3 clock_time.py clear n")
+        return
+    
     if cmd == "in":
         clock_in()
     elif cmd == "out":
@@ -151,6 +177,8 @@ def main():
             print("Usage: python3 clock_time.py clear n")
             return
         clear_n_previous(int(sys.argv[2]))
+    elif cmd == "status":
+        status()
     else:
         print("Unknown command.")
 
